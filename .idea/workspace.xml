@@ -93,7 +93,7 @@
       <updated>1751261238918</updated>
       <workItem from="1751261283253" duration="3036000" />
       <workItem from="1751275950541" duration="831000" />
-      <workItem from="1751284070868" duration="6379000" />
+      <workItem from="1751284070868" duration="6773000" />
     </task>
     <servers />
   </component>
@@ -101,6 +101,6 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/ncu_rest$ncu_rest.coverage" NAME="ncu_rest Coverage Results" MODIFIED="1751288766139" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/ncu_rest$ncu_rest.coverage" NAME="ncu_rest Coverage Results" MODIFIED="1751290884257" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

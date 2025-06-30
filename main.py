@@ -3,6 +3,7 @@ from fastapi import FastAPI
 app = FastAPI()
 
 ncu_settings = {
+    "request_hex": True,        # HEX for address, bus
     "response_hex": True,
     "kafka_message_long": True, # received_datetime:command|request_datetime:command|response_datetime:command
     "kafka_ipaddress_port": "192.168.0.107:9092",
@@ -27,7 +28,8 @@ ncu_commands = {
 #1
 @app.get("/getstate/{address}")
 async def getstate(address: str):
-    command = ncu_commands["getstate_"] + address + ncu_commands["_getstate"]
+    if (ncu_settings["request_hex"]):
+        command = ncu_commands["getstate_"] + address + ncu_commands["_getstate"]
 #    return {"message": f"GetState {command} for {address}"}
 #    return {"response": f"{command}"}
     if (ncu_settings["response_hex"]):
