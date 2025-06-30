@@ -8,10 +8,20 @@ app = FastAPI()
 async def getstate(address: str):
     return {"message": f"GetState for {address}"}
 
+#2
+@app.put("/unlock/{address}")
+async def unlock(address: str):
+    return {"message": f"Unlock for {address}"}
+
 #3
 @app.get("/getallstates")
 async def getallstates():
-    return {"message": "States ..."}
+    return {"message": "States..."}
+
+#4
+@app.put("/openall")
+async def openall():
+    return {"message": f"Openall..."}
 
 #5.1
 @app.get("/querytime/{address}")
