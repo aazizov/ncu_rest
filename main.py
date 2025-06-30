@@ -2,11 +2,26 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
+ncu_commands = {
+    "getstate_": "02",
+    "_getstate": "300335",
+    "unlock_": "02",
+    "_unlock": "310338",
+    "getallstates": "02F0320327",
+    "openall_": "02",
+    "_openall": "330338",
+    "querytime": "020037033C",
+    "queryaddressstate_": "02",
+    "_queryaddressstate": "3A033F",
+    "querybusstate_": "02",
+    "_querybusstate": "3A032F"
+}
 
 #1
 @app.get("/getstate/{address}")
 async def getstate(address: str):
-    return {"message": f"GetState for {address}"}
+    command = ncu_commands["getstate_"] + address + ncu_commands["_getstate"]
+    return {"message": f"GetState {command} for {address}"}
 
 #2
 @app.put("/unlock/{address}")
@@ -19,14 +34,14 @@ async def getallstates():
     return {"message": "States..."}
 
 #4
-@app.put("/openall")
-async def openall():
-    return {"message": f"Openall..."}
+@app.put("/openall/{bus}")
+async def openall(bus: str):
+    return {"message": f"Openall... for {bus}"}
 
 #5.1
-@app.get("/querytime/{address}")
-async def querytime(address: str):
-    return {"message": f"QueryTime for {address}"}
+@app.get("/querytime")
+async def querytime():
+    return {"message": f"QueryTime... "}
 
 #8.1
 @app.get("/queryaddresstate/{address}")
