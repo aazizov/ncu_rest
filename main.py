@@ -21,34 +21,35 @@ ncu_commands = {
 @app.get("/getstate/{address}")
 async def getstate(address: str):
     command = ncu_commands["getstate_"] + address + ncu_commands["_getstate"]
-    return {"message": f"GetState {command} for {address}"}
+#    return {"message": f"GetState {command} for {address}"}
+    return {"responce": f"{command}"}
 
 #2
 @app.put("/unlock/{address}")
 async def unlock(address: str):
-    return {"message": f"Unlock for {address}"}
+    return {"responce": f"Unlock for {address}"}
 
 #3
 @app.get("/getallstates")
 async def getallstates():
-    return {"message": "States..."}
+    return {"responce": "States..."}
 
 #4
 @app.put("/openall/{bus}")
 async def openall(bus: str):
-    return {"message": f"Openall... for {bus}"}
+    return {"responce": f"Openall... for {bus}"}
 
 #5.1
 @app.get("/querytime")
 async def querytime():
-    return {"message": f"QueryTime... "}
+    return {"responce": f"QueryTime... "}
 
 #8.1
 @app.get("/queryaddresstate/{address}")
 async def queryaddresstate(address: str):
-    return {"message": f"QueryAddrState for {address}"}
+    return {"responce": f"QueryAddrState for {address}"}
 
 #8.2
 @app.get("/querybusstate/{bus}")
 async def querytime(bus: str):
-    return {"message": f"QueryBusState for {bus}"}
+    return {"responce": f"QueryBusState for {bus}"}
