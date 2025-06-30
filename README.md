@@ -5,6 +5,9 @@ For Install
 For Running
 `$ uvicorn main:app --reload`
 
+For Testing
+`http:\\127.0.0.1:8000\docs`
+
 ### Features
 - Can send messages to Kafka brocker
 - .....
