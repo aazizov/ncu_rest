@@ -1,4 +1,4 @@
-# Rest interface for NCU16L equipment.
+# CRUD-Rest interface for NCU16L equipment.
 For Install
 `$ pip install -r requirements.txt`
 
