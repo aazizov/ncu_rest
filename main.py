@@ -1,6 +1,23 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+# from kafka import KafkaProducer
+import json
+import serial
+import time
+
 
 app = FastAPI()
+
+'''
+producer = KafkaProducer(
+    bootstrap_servers='localhost:9092',
+    api_version=(0,11,5),
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
+'''
+
+kafka_topic = 'ncu_topic'
+rs485_address = '/dev/cu.usbserial-B000KAZT'
 
 ncu_settings = {
     "request_hex": True,        # HEX for address, bus
@@ -24,6 +41,15 @@ ncu_commands = {
     "querybusstate_": "02",
     "_querybusstate": "3A032F"
 }
+
+ser = serial.Serial(
+    port= '/dev/cu.usbserial-B000KAZT', # 'COM1',            # Serial port name
+    baudrate=19200,          # Baud rate
+    parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)
+    stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)
+    bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)
+    timeout=1               # Read timeout in seconds
+)
 
 #1
 @app.get("/getstate/{address}")
@@ -55,6 +81,11 @@ async def getallstates():
 #4
 @app.put("/openall/{bus}")
 async def openall(bus: str):
+    command = ncu_commands["getstate_"] + bus + ncu_commands["_getstate"]
+    bytes_to_send = bytes.fromhex(command)
+    # Send data to the serial device
+    ser.write(bytes_to_send)
+
     return {"response": f"Openall... for {bus}"}
 
 #5.1
