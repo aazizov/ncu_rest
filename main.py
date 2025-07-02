@@ -28,6 +28,7 @@ ncu_settings = {
 }
 
 ncu_commands = {
+    "STX" : "02",
     "getstate_": "02",              # 1
     "_getstate": "300335",          # 1
     "unlock_": "02",                # 2
@@ -50,6 +51,8 @@ ser = serial.Serial(
     bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)
     timeout=1               # Read timeout in seconds
 )
+
+# def check_sum()
 
 #1
 @app.get("/getstate/{address}")
@@ -133,7 +136,7 @@ async def openall(bus: str):
             print(f"Received: {received_data}")
         else:
             print("No data received.")
-#    return {"response": f"Openall... for {bus}"}
+            return {"response": f"None"}
     return {"response": f"{received_data}"}
 
 #5.1
