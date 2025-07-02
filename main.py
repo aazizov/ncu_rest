@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from kafka import KafkaProducer
@@ -18,6 +20,14 @@ producer = KafkaProducer(
 
 kafka_topic = 'ncu_topic'
 rs485_address = '/dev/cu.usbserial-B000KAZT'
+
+class Response(BaseModel):
+    date_time1 : datetime.now()
+    rest_command : str
+    date_time2 : datetime.now()
+    rest_command : in_485
+    date_time2 : datetime.now()
+    rest_command : in_485
 
 ncu_settings = {
     "request_hex": True,        # HEX for address, bus
