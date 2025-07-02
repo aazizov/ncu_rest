@@ -28,7 +28,15 @@ ncu_settings = {
 }
 
 ncu_commands = {
-    "STX" : "02",
+    "_STX_": "02",
+    "_getstate_": "30",
+    "_unlock_": "31",
+    "_getallstates_": "32",
+    "_openall_": "33",
+    "_setup_unlock_time_": "37",
+    "_setup_unlock_delay_": "39",
+    "_get_detection_status_": "3A",
+    "_ETX_": "03",
     "getstate_": "02",              # 1
     "_getstate": "300335",          # 1
     "unlock_": "02",                # 2
