@@ -26,7 +26,7 @@ class Response(BaseModel):
     rest_command : str
     date_time2 : datetime.now()
     rest_command : in_485
-    date_time2 : datetime.now()
+    date_time3 : datetime.now()
     rest_command : in_485
 
 ncu_settings = {
