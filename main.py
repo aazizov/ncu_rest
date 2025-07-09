@@ -11,29 +11,42 @@ import time
 load_dotenv()
 api_key = os.getenv("API_KEY")
 
-class Request(BaseModel):
-    stx: str
-    command: str
-    etx: int
+class Request_Json(BaseModel):
+    data_time: datetime
+    request_hex: str
+    request_dec: str
 
-class Response(BaseModel):
-    decimal_result: str
-    hex_result: str
+class Response_Json(BaseModel):
+    data_time: datetime
+    response_hex: str
+    response_dec: str
+
+class Request_485(BaseModel):
+    data_time: datetime
+    stx: str = '02'     # Static
+    addr : str
+    command : str
+    data : str
+    etx: str = '03'     # Static
+    summa : int
+
+class Response_485(BaseModel):
+    data_time: datetime
+    result_hex: str
+    result_dec: str
 
 app = FastAPI()
 
-'''
+
 producer = KafkaProducer(
     bootstrap_servers='localhost:9092',
     api_version=(0,11,5),
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
-'''
+
 
 kafka_topic = 'ncu_topic'
-rs485_address = '/dev/cu.usbserial-B000KAZT'
-
-
+rs485_address = '/dev/cu.usbserial-B000KAZT' #   port= 'COM3',  # PC RS232 (USB-CAT5)   # Serial port name
 
 '''
 class Response(BaseModel):
@@ -78,15 +91,14 @@ ncu_commands = {
 }
 
 # Commented Temporary
-#ser = serial.Serial(
-#    port= 'COM3',  # PC RS232 (USB-CAT5)                            # Serial port name
-##    port='/dev/cu.usbserial-B000KAZT', # MacBook RS232 'COM1',     # Serial port name
-#    baudrate=19200,          # Baud rate
-#    parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)
-#    stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)
-#    bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)
-#    timeout=1               # Read timeout in seconds
-#)
+ser = serial.Serial(
+    port= rs485_address, # '/dev/cu.usbserial-B000KAZT', # MacBook RS232 'COM1',     # Serial port name
+    baudrate=19200,          # Baud rate
+    parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)
+    stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)
+    bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)
+    timeout=1               # Read timeout in seconds
+)
 
 # def check_sum()
 
@@ -106,28 +118,12 @@ def serial_txrx(send: str):
 
 
 #1
-@app.get("/getstate/{address}")
+#@app.get("/getstate/{address}")    # By URL
+@app.get("/getstate/{address}")     # By Json
 async def getstate(address: str):
     if (ncu_settings["request_hex"]):
         command = ncu_commands["getstate_"] + address + ncu_commands["_getstate"]
     return {"response": f"{serial_txrx(command)}"}
-'''
-        bytes_to_send = bytes.fromhex(command)
-        # Send data to the serial device
-        ser.write(bytes_to_send)
-        print(f"Sending: {bytes_to_send.hex()}")
-        # Wait a moment for the device to respond
-        time.sleep(0.1)
-        # Read data from the serial device
-        # Read all bytes waiting in the input buffer
-        if ser.in_waiting > 0:
-            received_data = ser.read(ser.in_waiting)
-            print(f"Received: {received_data}")
-        else:
-            print("No data received.")
-
-    return {"response": {received_data}}
-'''
 
 #2
 @app.put("/unlock/{address}")
