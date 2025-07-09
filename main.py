@@ -1,11 +1,15 @@
+import os
 from datetime import datetime
-
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from kafka import KafkaProducer
 import json
 import serial
 import time
+
+load_dotenv()
+api_key = os.getenv("API_KEY")
 
 
 app = FastAPI()
@@ -21,6 +25,9 @@ producer = KafkaProducer(
 kafka_topic = 'ncu_topic'
 rs485_address = '/dev/cu.usbserial-B000KAZT'
 
+
+
+'''
 class Response(BaseModel):
     date_time1 : datetime.now()
     rest_command : str
@@ -28,6 +35,7 @@ class Response(BaseModel):
     rest_command : in_485
     date_time3 : datetime.now()
     rest_command : in_485
+'''
 
 ncu_settings = {
     "request_hex": True,        # HEX for address, bus
@@ -72,19 +80,34 @@ ser = serial.Serial(
 
 # def check_sum()
 
+def serial_txrx(send: str):
+    # Send data to the serial device
+    ser.write(bytes.fromhex(send))
+    # Wait a moment for the device to respond
+    time.sleep(0.1)
+    # Read data from the serial device
+    # Read all bytes waiting in the input buffer
+    if ser.in_waiting > 0:
+        received_data = ser.read(ser.in_waiting)
+        print(f"Received: {received_data}")
+    else:
+        print("No data received.")
+    return {"response": f"{received_data}"}
+
+
 #1
 @app.get("/getstate/{address}")
 async def getstate(address: str):
     if (ncu_settings["request_hex"]):
         command = ncu_commands["getstate_"] + address + ncu_commands["_getstate"]
+    return {"response": f"{serial_txrx(command)}"}
+'''
         bytes_to_send = bytes.fromhex(command)
         # Send data to the serial device
         ser.write(bytes_to_send)
         print(f"Sending: {bytes_to_send.hex()}")
-
         # Wait a moment for the device to respond
         time.sleep(0.1)
-
         # Read data from the serial device
         # Read all bytes waiting in the input buffer
         if ser.in_waiting > 0:
@@ -92,7 +115,9 @@ async def getstate(address: str):
             print(f"Received: {received_data}")
         else:
             print("No data received.")
-    return {"response": f"{received_data}"}
+
+    return {"response": {received_data}}
+'''
 
 #2
 @app.put("/unlock/{address}")
