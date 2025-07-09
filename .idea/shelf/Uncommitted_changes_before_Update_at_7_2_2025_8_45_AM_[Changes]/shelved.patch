@@ -1,0 +1,409 @@
+Index: main.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>from fastapi import FastAPI, HTTPException\r\nfrom pydantic import BaseModel\r\nfrom kafka import KafkaProducer\r\nimport json\r\nimport serial\r\nimport time\r\n\r\n\r\napp = FastAPI()\r\n\r\n'''\r\nproducer = KafkaProducer(\r\n    bootstrap_servers='localhost:9092',\r\n    api_version=(0,11,5),\r\n    value_serializer=lambda v: json.dumps(v).encode('utf-8')\r\n)\r\n'''\r\n\r\nkafka_topic = 'ncu_topic'\r\nrs485_address = '/dev/cu.usbserial-B000KAZT'\r\n\r\nncu_settings = {\r\n    \"request_hex\": True,        # HEX for address, bus\r\n    \"response_hex\": True,\r\n    \"kafka_message_long\": True, # received_datetime:command|request_datetime:command|response_datetime:command\r\n    \"kafka_ipaddress_port\": \"192.168.0.107:9092\",\r\n    \"kafka_topic\": \"ncu\"\r\n}\r\n\r\nncu_commands = {\r\n    \"getstate_\": \"02\",              # 1\r\n    \"_getstate\": \"300335\",          # 1\r\n    \"unlock_\": \"02\",                # 2\r\n    \"_unlock\": \"310338\",            # 2\r\n    \"getallstates\": \"02F0320327\",   # 3\r\n    \"openall_\": \"02\",               # 4\r\n    \"_openall\": \"330338\",           # 4\r\n    \"querytime\": \"020037033C\",      # 5.1\r\n    \"queryaddressstate_\": \"02\",     # 8.1\r\n    \"_queryaddressstate\": \"3A033F\", # 8.1\r\n    \"querybusstate_\": \"02\",         # 8.2\r\n    \"_querybusstate\": \"3A032F\"      # 8.2\r\n}\r\n\r\nser = serial.Serial(\r\n    port= '/dev/cu.usbserial-B000KAZT', # 'COM1',            # Serial port name\r\n    baudrate=19200,          # Baud rate\r\n    parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)\r\n    stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)\r\n    bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)\r\n    timeout=1               # Read timeout in seconds\r\n)\r\n\r\n#1\r\n@app.get(\"/getstate/{address}\")\r\nasync def getstate(address: str):\r\n    if (ncu_settings[\"request_hex\"]):\r\n        command = ncu_commands[\"getstate_\"] + address + ncu_commands[\"_getstate\"]\r\n        bytes_to_send = bytes.fromhex(command)\r\n        # Send data to the serial device\r\n        ser.write(bytes_to_send)\r\n        print(f\"Sending: {bytes_to_send.hex()}\")\r\n\r\n        # Wait a moment for the device to respond\r\n        time.sleep(0.1)\r\n\r\n        # Read data from the serial device\r\n        # Read all bytes waiting in the input buffer\r\n        if ser.in_waiting > 0:\r\n            received_data = ser.read(ser.in_waiting)\r\n            print(f\"Received: {received_data}\")\r\n        else:\r\n            print(\"No data received.\")\r\n    return {\"response\": f\"{received_data}\"}\r\n\r\n#2\r\n@app.put(\"/unlock/{address}\")\r\nasync def unlock(address: str):\r\n    if (ncu_settings[\"request_hex\"]):\r\n        command = ncu_commands[\"unlock_\"] + address + ncu_commands[\"_unlock\"]\r\n        bytes_to_send = bytes.fromhex(command)\r\n        # Send data to the serial device\r\n        ser.write(bytes_to_send)\r\n        print(f\"Sending: {bytes_to_send.hex()}\")\r\n\r\n        # Wait a moment for the device to respond\r\n        time.sleep(0.1)\r\n\r\n    return {\"response\": \"None\"}\r\n\r\n#3\r\n@app.get(\"/getallstates\")\r\nasync def getallstates():\r\n    if (ncu_settings[\"request_hex\"]):\r\n        command = ncu_commands[\"getallstates\"]\r\n        bytes_to_send = bytes.fromhex(command)\r\n        # Send data to the serial device\r\n        ser.write(bytes_to_send)\r\n        print(f\"Sending: {bytes_to_send.hex()}\")\r\n\r\n        # Wait a moment for the device to respond\r\n        time.sleep(0.1)\r\n\r\n        # Read data from the serial device\r\n        # Read all bytes waiting in the input buffer\r\n        if ser.in_waiting > 0:\r\n            received_data = ser.read(ser.in_waiting)\r\n#            print(f\"Received: {received_data.decode().strip()}\")\r\n            print(f\"Received: {received_data}\")\r\n        else:\r\n            print(\"No data received.\")\r\n\r\n    return {\"response\": {received_data}}\r\n\r\n#4\r\n@app.put(\"/openall/{bus}\")      # Default: '0200330338'\r\nasync def openall(bus: str):\r\n    if (ncu_settings[\"request_hex\"]):\r\n        command = ncu_commands[\"openall_\"] + bus + ncu_commands[\"_openall\"]\r\n        bytes_to_send = bytes.fromhex(command)\r\n    # Send data to the serial device\r\n        ser.write(bytes_to_send)\r\n        print(f\"Sending: {bytes_to_send.hex()}\")\r\n\r\n        # Wait a moment for the device to respond\r\n        time.sleep(0.1)\r\n\r\n        # Read data from the serial device\r\n        # Read all bytes waiting in the input buffer\r\n        if ser.in_waiting > 0:\r\n            received_data = ser.read(ser.in_waiting)\r\n#            print(f\"Received: {received_data.decode().strip()}\")\r\n            print(f\"Received: {received_data}\")\r\n        else:\r\n            print(\"No data received.\")\r\n#    return {\"response\": f\"Openall... for {bus}\"}\r\n    return {\"response\": f\"{received_data}\"}\r\n\r\n#5.1\r\n@app.get(\"/querytime\")\r\nasync def querytime():\r\n    if (ncu_settings[\"request_hex\"]):\r\n        command = ncu_commands[\"querytime\"]\r\n        bytes_to_send = bytes.fromhex(command)\r\n        # Send data to the serial device\r\n        ser.write(bytes_to_send)\r\n        print(f\"Sending: {bytes_to_send.hex()}\")\r\n\r\n        # Wait a moment for the device to respond\r\n        time.sleep(0.1)\r\n\r\n        # Read data from the serial device\r\n        # Read all bytes waiting in the input buffer\r\n        if ser.in_waiting > 0:\r\n            received_data = ser.read(ser.in_waiting)\r\n            print(f\"Received: {received_data}\")\r\n        else:\r\n            print(\"No data received.\")\r\n\r\n    return {\"response\": {received_data}}\r\n\r\n\r\n#8.1\r\n@app.get(\"/queryaddresstate/{address}\")\r\nasync def queryaddresstate(address: str):\r\n    if (ncu_settings[\"request_hex\"]):\r\n        command = ncu_commands[\"queryaddressstate_\"] + address + ncu_commands[\"_queryaddressstate\"]\r\n        bytes_to_send = bytes.fromhex(command)\r\n        # Send data to the serial device\r\n        ser.write(bytes_to_send)\r\n        print(f\"Sending: {bytes_to_send.hex()}\")\r\n\r\n        # Wait a moment for the device to respond\r\n        time.sleep(0.1)\r\n\r\n        # Read data from the serial device\r\n        # Read all bytes waiting in the input buffer\r\n        if ser.in_waiting > 0:\r\n            received_data = ser.read(ser.in_waiting)\r\n            print(f\"Received: {received_data}\")\r\n        else:\r\n            print(\"No data received.\")\r\n            return {\"response\": \"None\"}\r\n    return {\"response\": f\"{received_data}\"}\r\n\r\n\r\n#8.2\r\n@app.get(\"/querybusstate/{bus}\")\r\nasync def querytime(bus: str):\r\n    if (ncu_settings[\"request_hex\"]):\r\n        command = ncu_commands[\"querybusstate_\"] + bus + ncu_commands[\"_querybusstate\"]\r\n        bytes_to_send = bytes.fromhex(command)\r\n        # Send data to the serial device\r\n        ser.write(bytes_to_send)\r\n        print(f\"Sending: {bytes_to_send.hex()}\")\r\n\r\n        # Wait a moment for the device to respond\r\n        time.sleep(0.1)\r\n\r\n        # Read data from the serial device\r\n        # Read all bytes waiting in the input buffer\r\n        if ser.in_waiting > 0:\r\n            received_data = ser.read(ser.in_waiting)\r\n            print(f\"Received: {received_data}\")\r\n        else:\r\n            print(\"No data received.\")\r\n            return {\"response\": \"None\"}\r\n    return {\"response\": f\"{received_data}\"}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/main.py b/main.py
+--- a/main.py	(revision 3c093997acf697103461c21a5553bcafa8957379)
++++ b/main.py	(date 1751372377147)
+@@ -43,7 +43,7 @@
+ }
+ 
+ ser = serial.Serial(
+-    port= '/dev/cu.usbserial-B000KAZT', # 'COM1',            # Serial port name
++    port= 'COM1',       # '/dev/cu.usbserial-B000KAZT', #             # Serial port name
+     baudrate=19200,          # Baud rate
+     parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)
+     stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)
+@@ -51,6 +51,17 @@
+     timeout=1               # Read timeout in seconds
+ )
+ 
++def send_485_receive(ncu_command: str, parameter: str):
++    if(ncu_command.find("_")):  # for complex commands
++        command = ncu_commands["getstate_"] + parameter + ncu_commands["_getstate"]
++    else:                       # for simple commands
++        command = ncu_commands[ncu_command] + parameter
++
++    response = ""
++
++    result = response
++    return result
++
+ #1
+ @app.get("/getstate/{address}")
+ async def getstate(address: str):
+Index: tmp_main.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/tmp_main.py b/tmp_main.py
+new file mode 100644
+--- /dev/null	(date 1751372824413)
++++ b/tmp_main.py	(date 1751372824413)
+@@ -0,0 +1,219 @@
++from fastapi import FastAPI, HTTPException
++from pydantic import BaseModel
++from kafka import KafkaProducer
++import json
++import serial
++import time
++
++
++app = FastAPI()
++
++'''
++producer = KafkaProducer(
++    bootstrap_servers='localhost:9092',
++    api_version=(0,11,5),
++    value_serializer=lambda v: json.dumps(v).encode('utf-8')
++)
++'''
++
++kafka_topic = 'ncu_topic'
++rs485_address = '/dev/cu.usbserial-B000KAZT'
++
++ncu_settings = {
++    "request_hex": True,        # HEX for address, bus
++    "response_hex": True,
++    "kafka_message_long": True, # received_datetime:command|request_datetime:command|response_datetime:command
++    "kafka_ipaddress_port": "192.168.0.107:9092",
++    "kafka_topic": "ncu"
++}
++
++ncu_commands = {
++    "getstate_": "02",              # 1
++    "_getstate": "300335",          # 1
++    "unlock_": "02",                # 2
++    "_unlock": "310338",            # 2
++    "getallstates": "02F0320327",   # 3
++    "openall_": "02",               # 4
++    "_openall": "330338",           # 4
++    "querytime": "020037033C",      # 5.1
++    "queryaddressstate_": "02",     # 8.1
++    "_queryaddressstate": "3A033F", # 8.1
++    "querybusstate_": "02",         # 8.2
++    "_querybusstate": "3A032F"      # 8.2
++}
++
++ser = serial.Serial(
++    port= 'COM1',       # '/dev/cu.usbserial-B000KAZT', #             # Serial port name
++    baudrate=19200,          # Baud rate
++    parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)
++    stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)
++    bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)
++    timeout=1               # Read timeout in seconds
++)
++
++def send_485_receive(ncu_command: str, parameter: str):
++    if(ncu_command.find("_")):  # for complex commands
++        command = ncu_commands["getstate_"] + parameter + ncu_commands["_getstate"]
++    else:                       # for simple commands
++        command = ncu_commands[ncu_command] + parameter
++
++    response = ""
++
++    result = response
++    return result
++
++#1
++@app.get("/getstate/{address}")
++async def getstate(address: str):
++    if (ncu_settings["request_hex"]):
++        command = ncu_commands["getstate_"] + address + ncu_commands["_getstate"]
++        bytes_to_send = bytes.fromhex(command)
++        # Send data to the serial device
++        ser.write(bytes_to_send)
++        print(f"Sending: {bytes_to_send.hex()}")
++
++        # Wait a moment for the device to respond
++        time.sleep(0.1)
++
++        # Read data from the serial device
++        # Read all bytes waiting in the input buffer
++        if ser.in_waiting > 0:
++            received_data = ser.read(ser.in_waiting)
++            print(f"Received: {received_data}")
++        else:
++            print("No data received.")
++    return {"response": f"{received_data}"}
++
++#2
++@app.put("/unlock/{address}")
++async def unlock(address: str):
++    if (ncu_settings["request_hex"]):
++        command = ncu_commands["unlock_"] + address + ncu_commands["_unlock"]
++        bytes_to_send = bytes.fromhex(command)
++        # Send data to the serial device
++        ser.write(bytes_to_send)
++        print(f"Sending: {bytes_to_send.hex()}")
++
++        # Wait a moment for the device to respond
++        time.sleep(0.1)
++
++    return {"response": "None"}
++
++#3
++@app.get("/getallstates")
++async def getallstates():
++    if (ncu_settings["request_hex"]):
++        command = ncu_commands["getallstates"]
++        bytes_to_send = bytes.fromhex(command)
++        # Send data to the serial device
++        ser.write(bytes_to_send)
++        print(f"Sending: {bytes_to_send.hex()}")
++
++        # Wait a moment for the device to respond
++        time.sleep(0.1)
++
++        # Read data from the serial device
++        # Read all bytes waiting in the input buffer
++        if ser.in_waiting > 0:
++            received_data = ser.read(ser.in_waiting)
++#            print(f"Received: {received_data.decode().strip()}")
++            print(f"Received: {received_data}")
++        else:
++            print("No data received.")
++
++    return {"response": {received_data}}
++
++#4
++@app.put("/openall/{bus}")      # Default: '0200330338'
++async def openall(bus: str):
++    if (ncu_settings["request_hex"]):
++        command = ncu_commands["openall_"] + bus + ncu_commands["_openall"]
++        bytes_to_send = bytes.fromhex(command)
++    # Send data to the serial device
++        ser.write(bytes_to_send)
++        print(f"Sending: {bytes_to_send.hex()}")
++
++        # Wait a moment for the device to respond
++        time.sleep(0.1)
++
++        # Read data from the serial device
++        # Read all bytes waiting in the input buffer
++        if ser.in_waiting > 0:
++            received_data = ser.read(ser.in_waiting)
++#            print(f"Received: {received_data.decode().strip()}")
++            print(f"Received: {received_data}")
++        else:
++            print("No data received.")
++#    return {"response": f"Openall... for {bus}"}
++    return {"response": f"{received_data}"}
++
++#5.1
++@app.get("/querytime")
++async def querytime():
++    if (ncu_settings["request_hex"]):
++        command = ncu_commands["querytime"]
++        bytes_to_send = bytes.fromhex(command)
++        # Send data to the serial device
++        ser.write(bytes_to_send)
++        print(f"Sending: {bytes_to_send.hex()}")
++
++        # Wait a moment for the device to respond
++        time.sleep(0.1)
++
++        # Read data from the serial device
++        # Read all bytes waiting in the input buffer
++        if ser.in_waiting > 0:
++            received_data = ser.read(ser.in_waiting)
++            print(f"Received: {received_data}")
++        else:
++            print("No data received.")
++
++    return {"response": {received_data}}
++
++
++#8.1
++@app.get("/queryaddresstate/{address}")
++async def queryaddresstate(address: str):
++    if (ncu_settings["request_hex"]):
++        command = ncu_commands["queryaddressstate_"] + address + ncu_commands["_queryaddressstate"]
++        bytes_to_send = bytes.fromhex(command)
++        # Send data to the serial device
++        ser.write(bytes_to_send)
++        print(f"Sending: {bytes_to_send.hex()}")
++
++        # Wait a moment for the device to respond
++        time.sleep(0.1)
++
++        # Read data from the serial device
++        # Read all bytes waiting in the input buffer
++        if ser.in_waiting > 0:
++            received_data = ser.read(ser.in_waiting)
++            print(f"Received: {received_data}")
++        else:
++            print("No data received.")
++            return {"response": "None"}
++    return {"response": f"{received_data}"}
++
++
++#8.2
++@app.get("/querybusstate/{bus}")
++async def querytime(bus: str):
++    if (ncu_settings["request_hex"]):
++        command = ncu_commands["querybusstate_"] + bus + ncu_commands["_querybusstate"]
++        bytes_to_send = bytes.fromhex(command)
++        # Send data to the serial device
++#        ser.write(bytes_to_send)
++        print(f"Sending: {bytes_to_send.hex()}")
++
++        # Wait a moment for the device to respond
++        time.sleep(0.1)
++
++        # Read data from the serial device
++        # Read all bytes waiting in the input buffer
++        if ser.in_waiting > 0:
++            received_data = ser.read(ser.in_waiting)
++            print(f"Received: {received_data}")
++        else:
++            print("No data received.")
++            return {"response": "None"}
++    return {"response": f"{received_data}"}
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"31ee792d-96b3-445f-9bb5-66ababffe0f3\" name=\"Changes\" comment=\"\">\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/main.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/main.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/requirements.txt\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/requirements.txt\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"FileTemplateManagerImpl\">\r\n    <option name=\"RECENT_TEMPLATES\">\r\n      <list>\r\n        <option value=\"FastAPI main\" />\r\n        <option value=\"FastAPI test_main\" />\r\n      </list>\r\n    </option>\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"GitHubPullRequestSearchHistory\">{\r\n  &quot;lastFilter&quot;: {\r\n    &quot;state&quot;: &quot;OPEN&quot;,\r\n    &quot;assignee&quot;: &quot;aazizov&quot;\r\n  }\r\n}</component>\r\n  <component name=\"GithubPullRequestsUISettings\"><![CDATA[{\r\n  \"selectedUrlAndAccountId\": {\r\n    \"url\": \"https://github.com/aazizov/ncu_rest.git\",\r\n    \"accountId\": \"1ef06409-ef10-47a4-abb4-a18f38e777d4\"\r\n  }\r\n}]]></component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 1\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2zDMYcwZrw09LoQqULgBjdUOuQH\" />\r\n  <component name=\"ProjectLevelVcsManager\">\r\n    <ConfirmationsSetting value=\"2\" id=\"Add\" />\r\n  </component>\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\"><![CDATA[{\r\n  \"keyToString\": {\r\n    \"FastAPI.ncu_rest.executor\": \"Run\",\r\n    \"RunOnceActivity.ShowReadmeOnStart\": \"true\",\r\n    \"RunOnceActivity.git.unshallow\": \"true\",\r\n    \"git-widget-placeholder\": \"master\",\r\n    \"last_opened_file_path\": \"/Users/agamusaazizov/PycharmProjects/ncu_rest\",\r\n    \"node.js.detected.package.eslint\": \"true\",\r\n    \"node.js.detected.package.tslint\": \"true\",\r\n    \"node.js.selected.package.eslint\": \"(autodetect)\",\r\n    \"node.js.selected.package.tslint\": \"(autodetect)\",\r\n    \"nodejs_package_manager_path\": \"npm\",\r\n    \"settings.editor.selected.configurable\": \"editing.templates\",\r\n    \"vue.rearranger.settings.migration\": \"true\"\r\n  }\r\n}]]></component>\r\n  <component name=\"RunManager\">\r\n    <configuration name=\"ncu_rest\" type=\"Python.FastAPI\">\r\n      <option name=\"file\" value=\"$PROJECT_DIR$/main.py\" />\r\n      <module name=\"ncu_rest\" />\r\n      <option name=\"ENV_FILES\" value=\"\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"false\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\r\n      <option name=\"launchJavascriptDebuger\" value=\"false\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n  </component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-PY-251.25410.159\" />\r\n        <option value=\"bundled-python-sdk-e0ed3721d81e-36ea0e71a18c-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.25410.159\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"31ee792d-96b3-445f-9bb5-66ababffe0f3\" name=\"Changes\" comment=\"\" />\r\n      <created>1751261238918</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1751261238918</updated>\r\n      <workItem from=\"1751261283253\" duration=\"3036000\" />\r\n      <workItem from=\"1751275950541\" duration=\"831000\" />\r\n      <workItem from=\"1751284070868\" duration=\"6773000\" />\r\n      <workItem from=\"1751304051928\" duration=\"11649000\" />\r\n    </task>\r\n    <servers />\r\n  </component>\r\n  <component name=\"TypeScriptGeneratedFilesManager\">\r\n    <option name=\"version\" value=\"3\" />\r\n  </component>\r\n  <component name=\"XDebuggerManager\">\r\n    <breakpoint-manager>\r\n      <breakpoints>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>166</line>\r\n          <option name=\"timeStamp\" value=\"8\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>167</line>\r\n          <option name=\"timeStamp\" value=\"9\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>169</line>\r\n          <option name=\"timeStamp\" value=\"10\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>141</line>\r\n          <option name=\"timeStamp\" value=\"11\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>142</line>\r\n          <option name=\"timeStamp\" value=\"12\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>143</line>\r\n          <option name=\"timeStamp\" value=\"13\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>170</line>\r\n          <option name=\"timeStamp\" value=\"14\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>173</line>\r\n          <option name=\"timeStamp\" value=\"15\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>177</line>\r\n          <option name=\"timeStamp\" value=\"16\" />\r\n        </line-breakpoint>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/main.py</url>\r\n          <line>178</line>\r\n          <option name=\"timeStamp\" value=\"17\" />\r\n        </line-breakpoint>\r\n      </breakpoints>\r\n    </breakpoint-manager>\r\n  </component>\r\n  <component name=\"com.intellij.coverage.CoverageDataManagerImpl\">\r\n    <SUITE FILE_PATH=\"coverage/ncu_rest$ncu_rest.coverage\" NAME=\"ncu_rest Coverage Results\" MODIFIED=\"1751335574447\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"false\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"\" />\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 3c093997acf697103461c21a5553bcafa8957379)
++++ b/.idea/workspace.xml	(date 1751431524584)
+@@ -5,9 +5,9 @@
+   </component>
+   <component name="ChangeListManager">
+     <list default="true" id="31ee792d-96b3-445f-9bb5-66ababffe0f3" name="Changes" comment="">
++      <change afterPath="$PROJECT_DIR$/tmp_main.py" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+     </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+@@ -31,17 +31,17 @@
+     &quot;assignee&quot;: &quot;aazizov&quot;
+   }
+ }</component>
+-  <component name="GithubPullRequestsUISettings"><![CDATA[{
+-  "selectedUrlAndAccountId": {
+-    "url": "https://github.com/aazizov/ncu_rest.git",
+-    "accountId": "1ef06409-ef10-47a4-abb4-a18f38e777d4"
++  <component name="GithubPullRequestsUISettings">{
++  &quot;selectedUrlAndAccountId&quot;: {
++    &quot;url&quot;: &quot;https://github.com/aazizov/ncu_rest.git&quot;,
++    &quot;accountId&quot;: &quot;1497d22a-d69c-4db0-a7bd-70a49be016b6&quot;
+   }
+-}]]></component>
++}</component>
+   <component name="ProjectColorInfo">{
+   &quot;associatedIndex&quot;: 1
+ }</component>
+   <component name="ProjectId" id="2zDMYcwZrw09LoQqULgBjdUOuQH" />
+-  <component name="ProjectLevelVcsManager">
++  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+     <ConfirmationsSetting value="2" id="Add" />
+   </component>
+   <component name="ProjectViewState">
+@@ -52,9 +52,7 @@
+   "keyToString": {
+     "FastAPI.ncu_rest.executor": "Run",
+     "RunOnceActivity.ShowReadmeOnStart": "true",
+-    "RunOnceActivity.git.unshallow": "true",
+     "git-widget-placeholder": "master",
+-    "last_opened_file_path": "/Users/agamusaazizov/PycharmProjects/ncu_rest",
+     "node.js.detected.package.eslint": "true",
+     "node.js.detected.package.tslint": "true",
+     "node.js.selected.package.eslint": "(autodetect)",
+@@ -84,8 +82,8 @@
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+-        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-PY-251.25410.159" />
+-        <option value="bundled-python-sdk-e0ed3721d81e-36ea0e71a18c-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.25410.159" />
++        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23726.102" />
++        <option value="bundled-python-sdk-5e1850174b45-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23726.102" />
+       </set>
+     </attachedChunks>
+   </component>
+@@ -99,71 +97,17 @@
+       <updated>1751261238918</updated>
+       <workItem from="1751261283253" duration="3036000" />
+       <workItem from="1751275950541" duration="831000" />
+-      <workItem from="1751284070868" duration="6773000" />
+-      <workItem from="1751304051928" duration="11649000" />
++      <workItem from="1751284070868" duration="15454000" />
+     </task>
+     <servers />
+   </component>
+   <component name="TypeScriptGeneratedFilesManager">
+     <option name="version" value="3" />
+   </component>
+-  <component name="XDebuggerManager">
+-    <breakpoint-manager>
+-      <breakpoints>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>166</line>
+-          <option name="timeStamp" value="8" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>167</line>
+-          <option name="timeStamp" value="9" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>169</line>
+-          <option name="timeStamp" value="10" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>141</line>
+-          <option name="timeStamp" value="11" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>142</line>
+-          <option name="timeStamp" value="12" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>143</line>
+-          <option name="timeStamp" value="13" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>170</line>
+-          <option name="timeStamp" value="14" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>173</line>
+-          <option name="timeStamp" value="15" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>177</line>
+-          <option name="timeStamp" value="16" />
+-        </line-breakpoint>
+-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+-          <url>file://$PROJECT_DIR$/main.py</url>
+-          <line>178</line>
+-          <option name="timeStamp" value="17" />
+-        </line-breakpoint>
+-      </breakpoints>
+-    </breakpoint-manager>
++  <component name="UnknownFeatures">
++    <option featureType="dependencySupport" implementationName="python:kafka-python" />
+   </component>
+   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+-    <SUITE FILE_PATH="coverage/ncu_rest$ncu_rest.coverage" NAME="ncu_rest Coverage Results" MODIFIED="1751335574447" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
++    <SUITE FILE_PATH="coverage/ncu_rest$ncu_rest.coverage" NAME="ncu_rest Coverage Results" MODIFIED="1751372228508" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+   </component>
+ </project>
+\ No newline at end of file

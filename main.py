@@ -11,6 +11,14 @@ import time
 load_dotenv()
 api_key = os.getenv("API_KEY")
 
+class Request(BaseModel):
+    stx: str
+    command: str
+    etx: int
+
+class Response(BaseModel):
+    decimal_result: str
+    hex_result: str
 
 app = FastAPI()
 
@@ -69,14 +77,16 @@ ncu_commands = {
     "_querybusstate": "3A032F"      # 8.2
 }
 
-ser = serial.Serial(
-    port= '/dev/cu.usbserial-B000KAZT', # 'COM1',            # Serial port name
-    baudrate=19200,          # Baud rate
-    parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)
-    stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)
-    bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)
-    timeout=1               # Read timeout in seconds
-)
+# Commented Temporary
+#ser = serial.Serial(
+#    port= 'COM3',  # PC RS232 (USB-CAT5)                            # Serial port name
+##    port='/dev/cu.usbserial-B000KAZT', # MacBook RS232 'COM1',     # Serial port name
+#    baudrate=19200,          # Baud rate
+#    parity=serial.PARITY_NONE, # Parity setting (e.g., serial.PARITY_ODD, serial.PARITY_EVEN)
+#    stopbits=serial.STOPBITS_ONE, # Stop bits (e.g., serial.STOPBITS_TWO)
+#    bytesize=serial.EIGHTBITS,  # Data bits (e.g., serial.SEVENBITS)
+#    timeout=1               # Read timeout in seconds
+#)
 
 # def check_sum()
 
