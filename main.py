@@ -12,26 +12,26 @@ load_dotenv()
 api_key = os.getenv("API_KEY")
 
 class Request_Json(BaseModel):
-    data_time: datetime
+    data_time: datetime.now()
     request_hex: str
     request_dec: str
 
 class Response_Json(BaseModel):
-    data_time: datetime
+    data_time: datetime.now()
     response_hex: str
     response_dec: str
 
 class Request_485(BaseModel):
-    data_time: datetime
+    data_time: datetime.now()
     stx: str = '02'     # Static
-    addr : str
-    command : str
-    data : str
+    addr: str
+    command: str
+    data: str
     etx: str = '03'     # Static
-    summa : int
+    summa: hex
 
 class Response_485(BaseModel):
-    data_time: datetime
+    data_time: datetime.now()
     result_hex: str
     result_dec: str
 
