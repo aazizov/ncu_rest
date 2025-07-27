@@ -32,38 +32,28 @@ class Response_Json(BaseModel):
     infrared: str = '01'
 
 class GetState_Json(BaseModel):
-    addr_dec: int = ''
+    addr_dec: int = '1'
     addr_hex: str = ''
 
 class Unlock_Json(BaseModel):
-    addr_ncu_dec: int = ''
+    addr_ncu_dec: int = 1
     addr_ncu_hex: str = ''
-    addr_lock_dec: int = ''
+    addr_lock_dec: int = 1
     addr_lock_hex: str = ''
 
+class Openall_Json(BaseModel):
+    addr_ncu_dec: int = 1
+    addr_ncu_hex: str = ''
 
-'''
-class Request_485(BaseModel):
-    data_time: datetime.now()
-    stx: str = '02'     # Static
-    addr: str = '00'
-    command: str = '00'
-    data: str = '00'
-    etx: str = '03'     # Static
-    summa: hex = hex(int(('0x'+stx),16)
-                     + int(('0x'+addr),16)
-                     + int(('0x'+command),16)
-                     + int(('0x'+data),16)
-                     + int(('0x'+etx),16))
-    request_hex: str
-    request_dec: int = int(request_hex)
+class Getunlocktime_Json(BaseModel):
+    addr_ncu_dec: int = 1
+    addr_ncu_hex: str = ''
 
-class Response_485(BaseModel):
-    data_time: datetime.now()
-    result_hex: str
-    result_dec: int = int(result_hex)
-'''
-
+class Setunlocktime_Json(BaseModel):
+    addr_ncu_dec: int = 1
+    addr_ncu_hex: str = ''
+    set_unlocktime_ms_dec: int = 550     # ==550ms   # ==0x27*10=550 ms
+    set_unlocktime_ms_hex: str = ''
 
 app = FastAPI()
 
@@ -149,6 +139,13 @@ def check_sum2(address: str, command: str, data: str):
                 #                     + int(('0x'+data),16)
                 + int(('0x' + etx), 16))[-2:]  # last 1(one)[2 symbols] byte from summa
 
+def check_sum3(address: str, command: str, data: str):
+    return hex(int(('0x' + stx), 16)
+                + int(('0x' + address), 16)
+                + int(('0x' + command), 16)
+                + int(('0x' + data),16)
+                + int(('0x' + etx), 16))[-2:]  # last 1(one)[2 symbols] byte from summa
+
 
 def serial_txrx(send: str):
     # Send data to the serial device
@@ -166,7 +163,9 @@ def serial_txrx(send: str):
         print("No data received.")
     return {'response_time': datetime.now(),
             'response_bytes': received_data,
-            'response_hex': received_data.hex()}
+            'response_hex': received_data.hex() #,
+            #'response_bin': bin(int(received_data, 16))[2:].zfill(len(received_data) * 4)
+            }
 
 #1
 #@app.get("/getstate/{address}")    # By URL
@@ -176,7 +175,7 @@ async def getstate(getstate_json: GetState_Json):
     if getstate_json.addr_dec != '':
         getstate_json.addr_dec = getstate_json.addr_dec - 1
 #        addr = getstate_json.addr_dec
-        addr = str(getstate_json.addr_addr_dec.to_bytes(1, byteorder='little'))[4:6]
+        addr = str(getstate_json.addr_dec.to_bytes(1, byteorder='little'))[4:6]
     else:
         addr = getstate_json.addr_hex
 
@@ -185,18 +184,28 @@ async def getstate(getstate_json: GetState_Json):
     command = stx + addr + cmd + etx + summa
     time_sent = datetime.now()
     response = serial_txrx(command)
+#    print(response['response_hex'][6:10])
+#    result = response['response_hex'][6:10]
+    result = response['response_hex'][8:10] + response['response_hex'][6:8] # reverse bytes = 0900 -> 0009
+    result_bin = bin(int(result))
+
+    if result == '0000':
+        lock_state = "unlocked"
+    else :
+        lock_state = "locked"
 
     return {"received_time": time_received,
-            "received_parameters": {"address": addr, "command": "getstate"},
+            "received_parameters": {"command": "getstate", "address": addr},
             "request_time": time_sent,
             "request_command": command,
             "response_time": response["response_time"],
             "response_bytes": response["response_bytes"],
             "response_hex": response["response_hex"],
-#            "response_result": {
+            "response_result": {
 #                "infrared": "0",
-#                "lock": "0",
-#            },
+                "lock_response": response['response_hex'][6:10],
+                "lock_state": lock_state,
+            },
     }
 
 #2
@@ -217,7 +226,7 @@ async def unlock(unlock_json: Unlock_Json):
     else:
         addr_lock = str(unlock_json.addr_lock_hex)
 
-    addr_ncu = addr_ncu[0:1]
+    addr_ncu =  addr_ncu[1:2]
     addr_lock = addr_lock[1:2]
     addr = addr_ncu + addr_lock
 
@@ -252,59 +261,89 @@ async def getallstates():
             "response_time": response["response_time"],
             "response_bytes": response["response_bytes"],
             "response_hex": response["response_hex"],
-            "response_result": {
-                "infrared":"0",
-                "lock":"0",
-                },
+#            "response_result": {
+#                "infrared":"0",
+#                "lock":"0",
+#                },
             }
 
 #4
-@app.put("/openall")      # Default: '0200330338'
-async def openall(bus: str):
-#async def openall(request_json: Request_Json):
-    if (ncu_settings["request_hex"]):
-        command = ncu_commands["openall_"] + bus + ncu_commands["_openall"]
-        bytes_to_send = bytes.fromhex(command)
-    # Send data to the serial device
-        ser.write(bytes_to_send)
-        print(f"Sending: {bytes_to_send.hex()}")
+@app.put("/openall/")      # Default: '0200330338'
+async def openall(openall_json: Openall_Json):
+    time_received = datetime.now()
+    if openall_json.addr_ncu_dec != '':
+        openall_json.addr_ncu_dec = openall_json.addr_ncu_dec - 1
+        addr_ncu = str(openall_json.addr_ncu_dec.to_bytes(2, byteorder='little'))[4:6]
+    else:
+        addr_ncu = str(openall_json.addr_ncu_hex)
 
-        # Wait a moment for the device to respond
-        time.sleep(0.1)
+    addr = addr_ncu
 
-        # Read data from the serial device
-        # Read all bytes waiting in the input buffer
-        if ser.in_waiting > 0:
-            received_data = ser.read(ser.in_waiting)
-#            print(f"Received: {received_data.decode().strip()}")
-            print(f"Received: {received_data}")
-        else:
-            print("No data received.")
-            return {"response": f"None"}
-    return {"response": f"{received_data}"}
+    cmd = '33'
+    summa = check_sum2(addr, cmd, '')
+    command = stx + addr + cmd + etx + summa
+    time_sent = datetime.now()
+    response = serial_txrx(command) # Response No by Docs
+
+    return {"received_time": time_received,
+            "received_parameters": {"command": "openall", "addr_ncu": addr_ncu},
+            "request_time": time_sent,
+            "request_command": command,
+            "response": response,
+    }
 
 #5.1
-@app.get("/querytime")
-async def querytime():
-    if (ncu_settings["request_hex"]):
-        command = ncu_commands["querytime"]
-        bytes_to_send = bytes.fromhex(command)
-        # Send data to the serial device
-        ser.write(bytes_to_send)
-        print(f"Sending: {bytes_to_send.hex()}")
+@app.put("/getunlocktime/")
+async def getunlocktime(getunlocktime_json: Getunlocktime_Json):
+    time_received = datetime.now()
+    if getunlocktime_json.addr_ncu_dec != '':
+        getunlocktime_json.addr_ncu_dec = getunlocktime_json.addr_ncu_dec - 1
+        addr_ncu = str(getunlocktime_json.addr_ncu_dec.to_bytes(1, byteorder='little'))[4:6]
+    else:
+        addr_ncu = str(getunlocktime_json.addr_ncu_hex)
 
-        # Wait a moment for the device to respond
-        time.sleep(0.1)
+    addr = addr_ncu
 
-        # Read data from the serial device
-        # Read all bytes waiting in the input buffer
-        if ser.in_waiting > 0:
-            received_data = ser.read(ser.in_waiting)
-            print(f"Received: {received_data}")
-        else:
-            print("No data received.")
+    cmd = '37'
+    summa = check_sum2(addr, cmd, '')
+    command = stx + addr + cmd + etx + summa
+    time_sent = datetime.now()
+    response = serial_txrx(command) # Response No by Docs
 
-    return {"response": {received_data}}
+    return {"received_time": time_received,
+            "received_parameters": {"command": "getsetunlocktime", "addr_ncu": addr_ncu},
+            "request_time": time_sent,
+            "request_command": command,
+            "response": response,
+    }
+
+@app.put("/setunlocktime/")
+async def setunlocktime(setunlocktime_json: Setunlocktime_Json):
+    time_received = datetime.now()
+    if setunlocktime_json.addr_ncu_dec != '':
+        setunlocktime_json.addr_ncu_dec = setunlocktime_json.addr_ncu_dec - 1
+        addr_ncu = str(setunlocktime_json.addr_ncu_dec.to_bytes(1, byteorder='little'))[4:6]
+        data_hex = hex(setunlocktime_json.set_unlocktime_ms_dec)
+        data_hex_10 = hex(setunlocktime_json.set_unlocktime_ms_dec // 10)
+        data = hex(setunlocktime_json.set_unlocktime_ms_dec // 10)[2:4]
+    else:
+        addr_ncu = str(setunlocktime_json.addr_ncu_hex)
+
+    addr = addr_ncu
+#    data = addr_ncu
+
+    cmd = '37'
+    summa = check_sum3(addr, cmd, data)
+    command = stx + addr + cmd + '00' + '00' + etx + summa
+    time_sent = datetime.now()
+    response = serial_txrx(command) # Response No by Docs
+
+    return {"received_time": time_received,
+            "received_parameters": {"command": "getsetunlocktime", "addr_ncu": addr_ncu},
+            "request_time": time_sent,
+            "request_command": command,
+            "response": response,
+    }
 
 
 #8.1
