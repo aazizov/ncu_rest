@@ -3,6 +3,7 @@ uvicorn # == 0.35.0
 pydantic #~=2.11.7
 pyserial #~=3.5
 kafka-python #~=2.2.13
+load_dotenv
 
 #venv
 poetry
