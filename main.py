@@ -265,7 +265,8 @@ async def getstatesall():
     command = stx + addr + cmd + etx + summa
     time_sent = datetime.now()
     response = serial_txrx(command)
-
+    response_hex = response['response_hex']
+    response_hex_len = len(response['response_hex'])
     count_of_board = len(response["response_hex"])/18       # Length of one BoardResponse = 18 symbols
     i = 1
     while i <= count_of_board:
@@ -282,7 +283,7 @@ async def getstatesall():
             "request_time": time_sent,
             "request_command": command,
             "response_time": response["response_time"],
-            "response_hex": response["response_hex"],
+            "response_hex": response_hex,
             "response_result": data,
             }
 
@@ -472,7 +473,8 @@ def serial_txrx(send: str):
     # Read all bytes waiting in the input buffer
     if ser.in_waiting > 0:
         # We have to exclude symbol ';' from the end of NCU16 response.
-        received_data = ser.read(ser.in_waiting).replace(b';', b'')
+#        received_data = ser.read(ser.in_waiting).replace(b';', b'')
+        received_data = ser.read(ser.in_waiting)
         print(f"Received: {received_data}")
     else:
         received_data = bytes("None Response", 'utf-8')
