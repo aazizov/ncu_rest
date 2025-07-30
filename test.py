@@ -1,4 +1,8 @@
 
+original_string = "This is a sample string to demonstrate removing characters."
+trimmed_string = original_string[10:]
+print(trimmed_string)
+
 input_dec = 15
 
 input_str = str(input_dec)
@@ -27,3 +31,42 @@ print("input_hex = {}".format(input_hex))
 print("input_binary_from_dec = {}".format(input_binary_from_dec))
 print("input_binary_from_hex = {}".format(input_binary_from_hex))
 print("input_bytes3 = {}".format(input_bytes3))
+
+
+
+
+'''
+    while count_of_board >= 1:
+        result_one_board = response['response_hex'][0:18]
+        result = result_one_board[8:10] + result_one_board[6:8]  # reverse bytes = 0900 -> 0009
+        result_bin = format(int(result, 16), 'b')[::-1]
+        if len(result_bin) < 16:
+            result_bin = result_bin.ljust(16, '0')
+
+        lock_index = 0
+        locks_array = [None] * 16  # Initial empty Array
+        while lock_index < 16:
+            locks_array[lock_index] = result_bin[lock_index]
+            lock_index = lock_index + 1
+        response_result = {"Board#" : count_of_board,
+                           "Lock#1": locks_array[0],
+                           "Lock#2": locks_array[1],
+                           "Lock#3": locks_array[2],
+                           "Lock#4": locks_array[3],
+                           "Lock#5": locks_array[4],
+                           "Lock#6": locks_array[5],
+                           "Lock#7": locks_array[6],
+                           "Lock#8": locks_array[7],
+                           "Lock#9": locks_array[8],
+                           "Lock#10": locks_array[9],
+                           "Lock#11": locks_array[10],
+                           "Lock#12": locks_array[11],
+                           "Lock#13": locks_array[12],
+                           "Lock#14": locks_array[13],
+                           "Lock#15": locks_array[14],
+                           "Lock#16": locks_array[15],
+                           }
+
+        response['response_hex'] = response['response_hex'][18:]    # Trim Left 18 symbols for One Board
+        count_of_board = count_of_board - 1
+'''

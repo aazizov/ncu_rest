@@ -1,8 +1,7 @@
 import os
+import json
 
 from datetime import datetime
-from warnings import catch_warnings
-import array
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -10,15 +9,11 @@ from kafka import KafkaProducer
 import json
 import serial
 import time
-import binascii
 
 stx = '02'  # Start Byte of majority of commands
 etx = '03'  # Stop Byte of majority of commands
 
 class Request_Json(BaseModel):
-#    data_time: datetime.now()
-#    request_hex: str
-#    request_dec: str
     stx: str = '02'     # Static
     addr: str = ''
     cmd: str = ''
@@ -26,9 +21,6 @@ class Request_Json(BaseModel):
     etx: str = '03'     # Static
 
 class Response_Json(BaseModel):
-#    data_time: datetime.now()
-#    response_hex: str
-#    response_dec: str
     lock: str = 'Open'
     infrared: str = '01'
 
@@ -51,13 +43,10 @@ class UnlockAll_Json(BaseModel):
 
 class Getunlocktime_Json(BaseModel):
     board: int = 1
-    addr_ncu_hex: str = ''
 
 class Setunlocktime_Json(BaseModel):
     board: int = 1
-    addr_ncu_hex: str = ''
     set_unlocktime_ms_dec: int = 550     # ==550ms   # ==0x27*10=550 ms
-    set_unlocktime_ms_hex: str = ''
 
 
 load_dotenv()
@@ -75,40 +64,6 @@ producer = KafkaProducer(
     api_version=(0,11,5),
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
-
-
-ncu_settings = {
-    "request_hex": True,        # HEX for address, bus
-    "response_hex": True,
-    "kafka_message_long": True, # received_datetime:command|request_datetime:command|response_datetime:command
-    "kafka_ipaddress_port": "192.168.0.107:9092",
-    "kafka_topic": "ncu"
-}
-
-ncu_commands = {
-    "_STX_": "02",
-    "_getstate_": "30",
-    "_unlock_": "31",
-    "_getallstates_": "32",
-    "_openall_": "33",
-    "_setup_unlock_time_": "37",
-    "_setup_unlock_delay_": "39",
-    "_get_detection_status_": "3A",
-    "_ETX_": "03",
-    "getstate_": "02",              # 1
-    "_getstate": "300335",          # 1
-    "unlock_": "02",                # 2
-    "_unlock": "310338",            # 2
-    "getallstates": "02F0320327",   # 3
-    "openall_": "02",               # 4
-    "_openall": "330338",           # 4
-    "querytime": "020037033C",      # 5.1
-    "queryaddressstate_": "02",     # 8.1
-    "_queryaddressstate": "3A033F", # 8.1
-    "querybusstate_": "02",         # 8.2
-    "_querybusstate": "3A032F"      # 8.2
-}
-
 
 for attempt in range(int(max_retries)):
     try:
@@ -154,7 +109,6 @@ except serial.SerialException as e:
 app = FastAPI()
 
 
-
 #1
 @app.put("/getstateboard/")     # By Json
 async def getstateboard(getstate_json: GetStateBoard_Json):
@@ -172,10 +126,9 @@ async def getstateboard(getstate_json: GetStateBoard_Json):
     command = stx + addr + cmd + etx + summa
     time_sent = datetime.now()
     response = serial_txrx(command)
+
     result = response['response_hex'][8:10] + response['response_hex'][6:8] # reverse bytes = 0900 -> 0009
-
     result_bin = format(int(result, 16), 'b')[::-1]
-
     if len(result_bin) < 16:
         result_bin = result_bin.ljust(16, '0')
 
@@ -299,8 +252,12 @@ async def unlock(unlock_json: Unlock_Json):
     }
 
 #3
-@app.put("/getstateall/")  # '02F0320327'
-async def getstateall():
+@app.put("/getstatesall/")  # '02F0320327'
+async def getstatesall():
+    '''
+    We can get the state of all locks (1..16) for all boards (1..10) at the same time.
+    Request parameters are not required.
+    '''
     time_received = datetime.now()
     cmd = '32'
     addr = 'F0'
@@ -309,12 +266,26 @@ async def getstateall():
     time_sent = datetime.now()
     response = serial_txrx(command)
 
+    count_of_board = len(response["response_hex"])/18       # Length of one BoardResponse = 18 symbols
+    i = 1
+    while i <= count_of_board:
+        if i == 1:
+            response_analyzed_1 = analyze_response(i, response["response_hex"][0:18])
+            data = [response_analyzed_1]
+        if i == 2:
+            response_analyzed_2 = analyze_response(i, response["response_hex"][0:18])
+            data.append(response_analyzed_2)
+
+        response['response_hex'] = response['response_hex'][18:]    # Trim Left 18 symbols for One Board
+        i = i + 1
+
     return {"received_time": time_received,
             "received_parameters": {"address": addr, "command": "getallstates"},
             "request_time": time_sent,
             "request_command": command,
             "response_time": response["response_time"],
             "response_hex": response["response_hex"],
+            "response_result": data,
             }
 
 #4
@@ -511,3 +482,34 @@ def serial_txrx(send: str):
     return {'response_time': datetime.now(),
             'response_hex': received_data.hex()
             }
+
+def analyze_response(board_number: int, result_one_board: str):
+    result = result_one_board[8:10] + result_one_board[6:8]  # reverse bytes = 0900 -> 0009
+    result_bin = format(int(result, 16), 'b')[::-1]
+    if len(result_bin) < 16:
+        result_bin = result_bin.ljust(16, '0')
+
+    lock_index = 0
+    locks_array = [None] * 16  # Initial empty Array
+    while lock_index < 16:
+        locks_array[lock_index] = result_bin[lock_index]
+        lock_index = lock_index + 1
+
+    return {"Board#": board_number,
+     "Lock#1": locks_array[0],
+     "Lock#2": locks_array[1],
+     "Lock#3": locks_array[2],
+     "Lock#4": locks_array[3],
+     "Lock#5": locks_array[4],
+     "Lock#6": locks_array[5],
+     "Lock#7": locks_array[6],
+     "Lock#8": locks_array[7],
+     "Lock#9": locks_array[8],
+     "Lock#10": locks_array[9],
+     "Lock#11": locks_array[10],
+     "Lock#12": locks_array[11],
+     "Lock#13": locks_array[12],
+     "Lock#14": locks_array[13],
+     "Lock#15": locks_array[14],
+     "Lock#16": locks_array[15],
+     }
