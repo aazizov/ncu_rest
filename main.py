@@ -1,9 +1,8 @@
 import os
-import threading
 
 from datetime import datetime
 from warnings import catch_warnings
-
+import array
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -13,8 +12,8 @@ import serial
 import time
 import binascii
 
-stx = '02'
-etx = '03'
+stx = '02'  # Start Byte of majority of commands
+etx = '03'  # Stop Byte of majority of commands
 
 class Request_Json(BaseModel):
 #    data_time: datetime.now()
@@ -35,12 +34,13 @@ class Response_Json(BaseModel):
 
 class GetVersion_Json(BaseModel):
     addr_board_dec: int = 1     # Board#1
-#    addr_board_hex: str = ''
 
-class GetState_Json(BaseModel):
+class GetStateBoard_Json(BaseModel):
     board: int = 1
-#    lock: int = 1
-#    addr_dec: int = '1'
+
+class GetStateLock_Json(BaseModel):
+    board: int = 1
+    lock: int = 1
 
 class Unlock_Json(BaseModel):
     board: int = 1
@@ -156,17 +156,16 @@ app = FastAPI()
 
 
 #1
-#@app.get("/getstate/{address}")    # By URL
-@app.put("/getstate/")     # By Json
-async def getstate(getstate_json: GetState_Json):
+@app.put("/getstateboard/")     # By Json
+async def getstateboard(getstate_json: GetStateBoard_Json):
     '''
-    We have to send number of Board (1-10).
+    We can get state of all Locks(1..16) for any Board(1..10).
+    We have to Request number of Board(1..10).
     '''
     time_received = datetime.now()
     getstate_json.board = getstate_json.board - 1
-    addr_ncu = str(getstate_json.board.to_bytes(2, byteorder='little'))[5:6]
-
-    addr = addr_ncu + '0'
+    addr_ncu = str(getstate_json.board.to_bytes(1, byteorder='little').hex()) #[5:6]
+    addr = addr_ncu[::-1] # + '0'
 
     cmd = '30'
     summa = check_sum2(addr, cmd, '')
@@ -174,42 +173,117 @@ async def getstate(getstate_json: GetState_Json):
     time_sent = datetime.now()
     response = serial_txrx(command)
     result = response['response_hex'][8:10] + response['response_hex'][6:8] # reverse bytes = 0900 -> 0009
-    result_bin = bin(int(result))
 
-    if result == '0000':
-        lock_state = "unlocked"
-    else :
-        lock_state = "locked"
+    result_bin = format(int(result, 16), 'b')[::-1]
+
+    if len(result_bin) < 16:
+        result_bin = result_bin.ljust(16, '0')
+
+    lock_index = 0
+    locks_array = [None] * 16   # Initial empty Array
+
+    while lock_index < 16:
+        locks_array[lock_index] = result_bin[lock_index]
+        lock_index = lock_index + 1
 
     return {"received_time": time_received,
             "received_parameters": {"command": "getstate", "address": addr},
             "request_time": time_sent,
             "request_command": command,
             "response_time": response["response_time"],
-            "response_bytes": response["response_bytes"],
             "response_hex": response["response_hex"],
             "response_result": {
-#                "infrared": "0",
-                "lock_response": response['response_hex'][6:10],
-                "lock_state": lock_state,
+                "result": result_bin,
+                "locks_state": "All Locks Locked",
+            },
+    } if result_bin == '1111111111111111' \
+        else {"received_time": time_received,
+            "received_parameters": {"command": "getstate", "address": addr},
+            "request_time": time_sent,
+            "request_command": command,
+            "response_time": response["response_time"],
+            "response_hex": response["response_hex"],
+            "response_result": {
+                "result": result_bin,
+                "Board": getstate_json.board + 1,
+                "Lock#1": locks_array[0],
+                "Lock#2": locks_array[1],
+                "Lock#3": locks_array[2],
+                "Lock#4": locks_array[3],
+                "Lock#5": locks_array[4],
+                "Lock#6": locks_array[5],
+                "Lock#7": locks_array[6],
+                "Lock#8": locks_array[7],
+                "Lock#9": locks_array[8],
+                "Lock#10": locks_array[9],
+                "Lock#11": locks_array[10],
+                "Lock#12": locks_array[11],
+                "Lock#13": locks_array[12],
+                "Lock#14": locks_array[13],
+                "Lock#15": locks_array[14],
+                "Lock#16": locks_array[15],
             },
     }
+
+@app.put("/getstatelock/")     # By Json
+async def getstatelock(getstate_json: GetStateLock_Json):
+    '''
+    We can get state of one requested Lock(1..16) for any Board(1..10).
+    We have to Request number of Board(1..10) and number of Lock(1..16).
+    '''
+    time_received = datetime.now()
+    getstate_json.board = getstate_json.board - 1
+    getstate_json.lock = getstate_json.lock - 1
+    addr_ncu = str(getstate_json.board.to_bytes(1, byteorder='little').hex()) #[5:6]
+    addr = addr_ncu[::-1] # + '0'
+
+    cmd = '30'
+    summa = check_sum2(addr, cmd, '')
+    command = stx + addr + cmd + etx + summa
+    time_sent = datetime.now()
+    response = serial_txrx(command)
+    result = response['response_hex'][8:10] + response['response_hex'][6:8] # reverse bytes = 0900 -> 0009
+
+    result_bin = format(int(result, 16), 'b')[::-1]
+
+    if len(result_bin) < 16:
+        result_bin = result_bin.ljust(16, '0')
+
+    lock_index = 0
+    locks_array = [None] * 16   # Initial empty Array
+
+    while lock_index < 16:
+        locks_array[lock_index] = result_bin[lock_index]
+        lock_index = lock_index + 1
+
+    return {"received_time": time_received,
+            "received_parameters": {"command": "getstate", "address": addr},
+            "request_time": time_sent,
+            "request_command": command,
+            "response_time": response["response_time"],
+            "response_hex": response["response_hex"],
+            "response_result": {
+                "result": result_bin,
+                "Board": getstate_json.board + 1,
+                "Lock#"+str(getstate_json.lock+1): locks_array[getstate_json.lock],
+            },
+    }
+
 
 @app.put("/unlock/")
 async def unlock(unlock_json: Unlock_Json):
     '''
-    We have to send number of Board (1-10), and number of Lock(1-16).
+    We can unlock any Lock on any Board.
+    We have to Request number of Board(1..10), and number of Lock(1..16).
+    Response is absent.
     '''
     time_received = datetime.now()
 
     unlock_json.board = unlock_json.board - 1
-    addr_ncu = str(unlock_json.board.to_bytes(1, byteorder='little'))[4:6]
+    addr_ncu = str(unlock_json.board.to_bytes(1, byteorder='little').hex()) #[4:6]
     unlock_json.lock = unlock_json.lock - 1
-    addr_lock = str(unlock_json.lock.to_bytes(1, byteorder='little'))[4:6]
-
-    addr_ncu =  addr_ncu[1:2]
-    addr_lock = addr_lock[1:2]
-    addr = addr_ncu + addr_lock
+    addr_lock = str(unlock_json.lock.to_bytes(1, byteorder='little').hex()) #[4:6]
+    addr = addr_ncu[1:2] + addr_lock[1:2]
 
     cmd = '31'
     summa = check_sum2(addr, cmd, '')
@@ -240,22 +314,21 @@ async def getstateall():
             "request_time": time_sent,
             "request_command": command,
             "response_time": response["response_time"],
-            "response_bytes": response["response_bytes"],
             "response_hex": response["response_hex"],
-#            "response_result": {
-#                "infrared":"0",
-#                "lock":"0",
-#                },
             }
 
 #4
 @app.put("/unlockall/")      # Default: '0200330338'
 async def unlockall(unlockall_json: UnlockAll_Json):
+    '''
+    We can unlock all Locks on any Board.
+    We have to Request number of Board(1..10).
+    Response is absent.
+    '''
     time_received = datetime.now()
     unlockall_json.board = unlockall_json.board - 1
-    addr_ncu = str(unlockall_json.board.to_bytes(2, byteorder='little'))[5:6]
-
-    addr = addr_ncu + '0' # 00 - board 1, 10 - board 2, 20 - board 3
+    addr_ncu = str(unlockall_json.board.to_bytes(1, byteorder='little').hex()) #[5:6]
+    addr = addr_ncu[::-1] # Reverse Board Address # 00 - board 1, 10 - board 2, 20 - board 3
 
     cmd = '33'
     summa = check_sum2(addr, cmd, '')
@@ -264,7 +337,7 @@ async def unlockall(unlockall_json: UnlockAll_Json):
     response = serial_txrx(command) # Response No by Docs
 
     return {"received_time": time_received,
-            "received_parameters": {"command": "openall", "addr_ncu": addr_ncu},
+            "received_parameters": {"command": "unlockall", "addr_ncu": addr_ncu},
             "request_time": time_sent,
             "request_command": command,
             "response": response,
@@ -273,6 +346,9 @@ async def unlockall(unlockall_json: UnlockAll_Json):
 #5.1
 @app.put("/getunlocktime/")
 async def getunlocktime(getunlocktime_json: Getunlocktime_Json):
+    '''
+    ! GetUnlockTime NOT work with current version of Software. Will work after upgrade of Software.
+    '''
     time_received = datetime.now()
     if getunlocktime_json.board != '':
         getunlocktime_json.board = getunlocktime_json.board - 1
@@ -297,6 +373,9 @@ async def getunlocktime(getunlocktime_json: Getunlocktime_Json):
 
 @app.put("/setunlocktime/")
 async def setunlocktime(setunlocktime_json: Setunlocktime_Json):
+    '''
+    ! SetUnlockTime NOT work with current version of Software. Will work after upgrade of Software.
+    '''
     time_received = datetime.now()
     if setunlocktime_json.board != '':
         setunlocktime_json.board = setunlocktime_json.board - 1
@@ -308,7 +387,6 @@ async def setunlocktime(setunlocktime_json: Setunlocktime_Json):
         addr_ncu = str(setunlocktime_json.addr_ncu_hex)
 
     addr = addr_ncu
-#    data = addr_ncu
 
     cmd = '37'
     summa = check_sum3(addr, cmd, data)
@@ -342,7 +420,6 @@ async def getversion(getversion_json: GetVersion_Json):
             "request_time": time_sent,
             "request_command": command,
             "response_time": response["response_time"],
-            "response_bytes": response["response_bytes"],
             "response_hex": response["response_hex"],
             }
 
@@ -432,7 +509,5 @@ def serial_txrx(send: str):
         received_data = bytes("None Response", 'utf-8')
         print("No data received.")
     return {'response_time': datetime.now(),
-            'response_bytes': received_data,
-            'response_hex': received_data.hex() #,
-            #'response_bin': bin(int(received_data, 16))[2:].zfill(len(received_data) * 4)
+            'response_hex': received_data.hex()
             }
