@@ -31,6 +31,9 @@ class GetStateBoard_Json(BaseModel):
     board: int = 1
 
 class GetStateLock_Json(BaseModel):
+    '''
+    Board Number from 1 to 10
+    '''
     board: int = 1
     lock: int = 1
 
@@ -473,7 +476,6 @@ def serial_txrx(send: str):
     # Read all bytes waiting in the input buffer
     if ser.in_waiting > 0:
         # We have to exclude symbol ';' from the end of NCU16 response.
-#        received_data = ser.read(ser.in_waiting).replace(b';', b'')
         received_data = ser.read(ser.in_waiting)
         print(f"Received: {received_data}")
     else:
