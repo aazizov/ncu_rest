@@ -270,11 +270,9 @@ async def getstatesall():
     i = 1
     while i <= count_of_board:
         if i == 1:
-            response_analyzed_1 = analyze_response(i, response["response_hex"][0:18])
-            data = [response_analyzed_1]
-        if i == 2:
-            response_analyzed_2 = analyze_response(i, response["response_hex"][0:18])
-            data.append(response_analyzed_2)
+            data = [analyze_response(i, response["response_hex"][0:18])]
+        elif i <= count_of_board:
+            data.append(analyze_response(i, response["response_hex"][0:18]))
 
         response['response_hex'] = response['response_hex'][18:]    # Trim Left 18 symbols for One Board
         i = i + 1
