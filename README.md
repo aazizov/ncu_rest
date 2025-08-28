@@ -1,4 +1,6 @@
 # CRUD-Rest interface for NCU16L equipment.
+CRUD Rest-RS485 gateway interface for Kerong Smart Locker Systems boards https://www.kerong.hk/electric-lockers-solutions/locker-system-solution/locker-control-board
+
 For Install
 `$ pip install -r requirements.txt`
 
